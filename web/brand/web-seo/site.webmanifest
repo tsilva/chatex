@@ -1,0 +1,23 @@
+{
+  "name": "chatex",
+  "short_name": "chatex",
+  "icons": [
+    {
+      "src": "android-chrome-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "android-chrome-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#fffefb",
+  "background_color": "#fffefb",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/"
+}
