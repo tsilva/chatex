@@ -18,6 +18,8 @@ Audio uses mono PCM16 at 24 kHz in 200 ms batches through AudioWorklet. Sequence
 
 Reconnects restore membership and a bounded caption snapshot. Audio is never replayed. Short connection drops can restart an existing capture; reloading the page requires explicit microphone activation again. Capture stops when leaving or ending the room. A screen wake lock is requested when supported; the page must remain visible for this trial.
 
+Provider connection failures automatically retry twice, after 500 ms and one second, retaining the existing microphone capture. Audio during the outage is dropped. Muting, leaving, or ending cancels pending retries. After the retry budget is exhausted, the microphone stops and the user can retry manually; ten seconds of accepted audio restores the automatic retry budget.
+
 Ending or expiring a room deletes its Durable Object storage, closes provider/client sockets, and clears captions on connected phones. No audio is stored. Worker observability is disabled to avoid recording requests or caption payloads in application logs. Closed/offline browsers clear stale captions when they reconnect to an ended room.
 
 ## Trial limits
