@@ -47,7 +47,42 @@ vercel deploy --prod --yes --scope tsilvas-projects
 
 `CHATEX_API_URL` is set in the Vercel project's production environment. `scripts/set-openai-secret.py` uploads only `OPENAI_API_KEY` from root `.env` to the existing Worker. Secret values are never copied into the static build or Wrangler config.
 
-For local work, copy `worker/.dev.vars.example` to ignored `worker/.dev.vars` and set `OPENAI_API_KEY`; optional `TRANSCRIPTION_URL` and `TRANSCRIPTION_TOKEN` configure a compatible service. Run `wrangler dev --config worker/wrangler.jsonc --port 0` and use its printed URL as `CHATEX_API_URL`. `node scripts/serve.mjs` serves the build on an automatically assigned port. Allow that frontend origin in the local Worker variables. Existing servers need not be restarted; Wrangler watches source/config changes.
+For local work, follow [Local development](#local-development). Optional `TRANSCRIPTION_URL` and `TRANSCRIPTION_TOKEN` in `worker/.dev.vars` configure a compatible service.
+
+## Local development
+
+Run these commands from the repository root after `pnpm install --frozen-lockfile`. Use Node.js 22 or newer and pnpm 10.33.0. Wrangler uses numeric `--port 0` to choose a free port; the frontend server also chooses its port automatically. Keep existing servers running and reuse their printed URLs.
+
+For a fresh clone, copy the secret template and set `OPENAI_API_KEY` in the ignored `worker/.dev.vars` file. If that file already exists, edit it rather than copying over it. A real transcription session incurs OpenAI charges; `pnpm test:rooms` uses a mock provider and needs no real key.
+
+```sh
+cp -n worker/.dev.vars.example worker/.dev.vars
+```
+
+In the first terminal, build and serve the frontend:
+
+```sh
+pnpm build
+node scripts/serve.mjs --port auto
+```
+
+In a second terminal, paste the exact frontend URL when prompted, then start the local backend. The origin override applies only to this local process:
+
+```sh
+printf 'Frontend URL printed by the server: '
+read -r chatex_frontend_url
+pnpm exec wrangler dev --config worker/wrangler.jsonc --port 0 --ip 127.0.0.1 --var "ALLOWED_ORIGINS:$chatex_frontend_url"
+```
+
+In a third terminal, rebuild using the backend URL printed by Wrangler:
+
+```sh
+printf 'Backend URL printed by Wrangler: '
+read -r chatex_api_url
+CHATEX_API_URL="$chatex_api_url" pnpm build
+```
+
+Open or reload the frontend URL from the first terminal. The static server reads the rebuilt files without a restart. A phone opening this development server needs a reachable HTTPS setup for microphone access; use the deployed site for the multi-phone trial.
 
 ## Provider boundary
 
