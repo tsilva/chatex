@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fffefb"><meta name="description" content="Legendas em direto para conversar com amigos.">
+<title>chatex</title><link rel="stylesheet" href="/style.css"><script src="/config.js"></script><script type="module" src="/app.js"></script>
+</head>
+<body>
+<main>
+<section id="home" class="page">
+<header><h1>chatex</h1></header>
+<div class="center">
+<label for="name">Nome</label><input id="name" autocomplete="given-name" maxlength="40" required>
+<p id="invited-room" class="muted" hidden></p>
+<div class="home-actions"><button id="create" class="primary" disabled>Criar sala</button><button id="join-code" class="secondary" disabled>Entrar numa sala</button></div>
+</div>
+</section>
+<section id="waiting" class="page" hidden>
+<header><button class="icon" id="leave-waiting" aria-label="Sair da sala">←</button><span id="waiting-count" class="muted"></span></header>
+<div class="content"><button class="invite-card" id="waiting-invite" aria-label="Partilhar convite"><div id="waiting-qr" class="qr"></div><strong id="waiting-code" class="code"></strong></button>
+<ul id="roster"></ul><div class="bottom"><p id="waiting-status" class="muted"></p><button id="start" class="primary" hidden>Começar</button></div></div>
+</section>
+<section id="room" class="page" hidden>
+<header class="room-header"><h1 id="room-code"></h1><span id="connection" class="muted" role="status">A ligar…</span><button class="icon" id="room-menu" aria-label="Opções da sala">⋯</button></header>
+<div id="history" tabindex="0" aria-label="Conversa"></div>
+<button id="return-live" class="return-live" hidden>Voltar ao direto ↓</button>
+<div id="live" aria-label="Legendas em curso"></div>
+<form id="composer"><button type="button" id="mic" class="mic" aria-label="Ligar microfone" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/><path id="mic-slash" d="M3 3l18 18"/></svg></button><input id="reply" aria-label="Escrever uma resposta" placeholder="Escrever…" maxlength="2000" autocomplete="off"><button class="send" aria-label="Enviar resposta">↑</button></form>
+</section>
+<section id="ended" class="page" hidden><header><h1>chatex</h1></header><div class="center"><h1>Sala terminada.</h1><p class="muted">Legendas apagadas.</p><button class="primary home-button">Voltar ao início</button></div></section>
+<p id="notice" hidden role="alert"></p>
+</main>
+<dialog id="code-dialog"><form id="code-form"><h2>Entrar numa sala</h2><label for="code-input">Código</label><input id="code-input" maxlength="12" autocapitalize="characters" autocomplete="off" required><button class="primary">Continuar</button></form><button class="plain" data-close>Cancelar</button></dialog>
+<dialog id="menu-dialog"><h2>Opções da sala</h2><button class="menu-item" id="invite">Convidar</button><button class="menu-item" id="larger">Texto maior</button><button class="menu-item" id="exit">Sair da sala</button><button class="plain" data-close>Fechar</button></dialog>
+<dialog id="invite-dialog"><h2>Convidar</h2><div id="invite-qr" class="qr"></div><strong id="invite-code" class="code"></strong><button class="primary" id="share">Partilhar convite</button><button class="plain" data-close>Fechar</button></dialog>
+<dialog id="exit-dialog"><h2 id="exit-title">Sair da sala?</h2><p id="exit-description" class="muted"></p><button class="primary" id="confirm-exit">Sair</button><button class="plain" data-close>Cancelar</button></dialog>
+</body></html>

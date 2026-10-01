@@ -1,0 +1,20 @@
+{
+  "name": "chatex-rooms",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:rooms": "node scripts/test-rooms.mjs",
+    "deploy:backend": "wrangler deploy --config worker/wrangler.jsonc"
+  },
+  "dependencies": {
+    "qrcode-generator": "2.0.4"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "wrangler": "4.137.0",
+    "ws": "8.18.3"
+  }
+}

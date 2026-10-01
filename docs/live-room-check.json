@@ -1,0 +1,21 @@
+{
+  "checked": "2026-09-30T15:16:01.582Z",
+  "api": "https://chatex-rooms.eng-tiago-silva.workers.dev",
+  "frontend": "https://chatex-phi.vercel.app",
+  "input": "Two synthesized voices streamed concurrently as separate PCM24 microphones; Portuguese (Portugal) and English",
+  "captions": [
+    {
+      "name": "Ana (teste)",
+      "text": "Olá, estamos a testar as legendas em português de Portugal. Vamos conversar com os nossos amigos."
+    },
+    {
+      "name": "João (teste)",
+      "text": "Hello Anna, I can follow the conversation with these captions. Let us meet our friends for coffee."
+    }
+  ],
+  "firstCaptionMs": [
+    742,
+    761
+  ],
+  "source": "Live OpenAI API through deployed Cloudflare Worker"
+}

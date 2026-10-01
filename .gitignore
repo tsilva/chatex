@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+node_modules/
+dist/
+.vercel/
+.wrangler/
+.dev.vars*
+worker/.dev.vars*
+.vercel
+.env*
+!worker/.dev.vars.example

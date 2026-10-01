@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Live captions · speaker spike</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #edf2ef; background: #101816; }
+    body { margin: 0; padding: 32px 20px; }
+    main { max-width: 920px; margin: auto; }
+    h1 { font-size: clamp(26px, 4vw, 42px); margin: 0 0 8px; }
+    p { color: #a9bbb2; line-height: 1.5; }
+    .bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 26px 0; }
+    button { border: 0; background: #8bde84; color: #102015; font: inherit; font-weight: 700; padding: 12px 20px; border-radius: 10px; cursor: pointer; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    #stop { background: #293c34; color: #edf2ef; }
+    #status { color: #b7c9be; }
+    .panel { background: #19251f; border: 1px solid #314339; border-radius: 16px; padding: 20px; margin: 20px 0; }
+    .title { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 14px; }
+    .title h2 { margin: 0; font-size: 19px; }
+    .muted { color: #99afa1; font-size: 14px; }
+    .row { display: grid; grid-template-columns: 100px 1fr; gap: 12px; align-items: center; margin: 10px 0; }
+    .track { position: relative; background: #26372e; height: 30px; border-radius: 6px; overflow: hidden; }
+    .segment { position: absolute; height: 100%; border-radius: 4px; min-width: 2px; opacity: .95; }
+    .tickrow { margin-left: 112px; display: flex; justify-content: space-between; color: #91a99a; font-size: 12px; }
+    .event { display: grid; grid-template-columns: 92px 116px 1fr; gap: 12px; padding: 10px 0; border-top: 1px solid #304238; align-items: center; }
+    .pill { border-radius: 6px; padding: 5px 8px; font-weight: 700; color: #102015; width: fit-content; }
+    #events { max-height: 300px; overflow: auto; }
+    #meter { width: 120px; height: 8px; background: #2c3b32; border-radius: 8px; overflow: hidden; }
+    #meter > div { width: 0; height: 100%; background: #8bde84; transition: width .15s; }
+    label { color: #c8d9cd; font-weight: 600; }
+    select { background: #26372e; color: #edf2ef; border: 1px solid #4d6856; border-radius: 8px; padding: 10px; font: inherit; }
+    .caption-line { border-top: 1px solid #304238; padding: 12px 0; line-height: 1.45; font-size: clamp(19px, 3vw, 26px); }
+    .caption-line .pill { display: inline-block; margin-right: 10px; font-size: 14px; vertical-align: middle; }
+    #captions { max-height: 320px; overflow: auto; }
+    @media (max-width: 540px) { .row { grid-template-columns: 82px 1fr; } .tickrow { margin-left: 94px; } .event { grid-template-columns: 80px 1fr; } .event span:last-child { grid-column: 2; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Live captions</h1>
+  <p>See what was said and watch anonymous speaker lanes while people talk. Try OpenAI live transcription for clearer words, with Nemotron tracking speakers. Speaker labels on captions are provisional.</p>
+  <div class="bar">
+    <label for="provider">Transcription</label>
+    <select id="provider">
+      <option value="openai">OpenAI live (cloud)</option>
+      <option value="local">Nemotron local</option>
+    </select>
+    <label for="language">Language</label>
+    <select id="language">
+      <option value="pt-PT">Português (Portugal)</option>
+      <option value="auto">Detect automatically</option>
+      <option value="en-US">English</option>
+      <option value="es-ES">Español</option>
+      <option value="fr-FR">Français</option>
+      <option value="de-DE">Deutsch</option>
+      <option value="it-IT">Italiano</option>
+      <option value="pt-BR">Português (Brasil)</option>
+    </select>
+    <button id="start" disabled>Start microphone</button>
+    <button id="stop" disabled>Stop</button>
+    <span id="status" role="status">Checking model…</span>
+    <div id="meter" aria-label="Microphone level"><div></div></div>
+  </div>
+  <p class="muted">OpenAI live sends microphone audio to OpenAI for transcription. Nemotron local processes audio on beast-3. Speaker lanes stay on beast-3 with either choice.</p>
+  <section class="panel">
+    <div class="title"><h2>What was said</h2><span class="muted" id="transcriberLabel">OpenAI live transcription</span></div>
+    <div id="captions" aria-live="polite"><p>Waiting for speech.</p></div>
+  </section>
+  <section class="panel">
+    <div class="title"><h2>Speaker activity</h2><span class="muted" id="duration">0.0 s</span></div>
+    <div id="lanes"><p>Speaker lanes will appear after the first inference.</p></div>
+    <div class="tickrow"><span>0 s</span><span id="endTick">0 s</span></div>
+  </section>
+  <section class="panel">
+    <div class="title"><h2>Detected turns</h2><span class="muted">Updates about every 2 seconds</span></div>
+    <div id="events"><p>Waiting for audio.</p></div>
+  </section>
+  <p class="muted">Labels follow first arrival. Overlapping blocks mean simultaneous speech. A single session is limited to 60 seconds; results can revise as more audio arrives. OpenAI captions are matched to speakers by phrase timing, so speaker labels are approximate. Unassigned captions have no reliable match yet.</p>
+</main>
+<script>
+const colors = ['#8bde84','#87cced','#ffc978','#dca8f6','#f3a8b2','#a8dfd5','#d6d890','#eea67c'];
+const $ = id => document.getElementById(id);
+let socket, stream, context, source, worklet, silentGain, sessionDuration = 0;
+let healthState = null;
+const status = message => { $('status').textContent = message; };
+const time = value => `${value.toFixed(1)} s`;
+const providerAvailable = () => Boolean(healthState?.ready && healthState.providers?.[$('provider').value]);
+
+async function checkHealth() {
+  try {
+    healthState = await (await fetch('/health')).json();
+    $('transcriberLabel').textContent = $('provider').value === 'openai' ? 'OpenAI live transcription' : 'Local Nemotron transcription';
+    if (providerAvailable()) status('Model ready');
+    else if ($('provider').value === 'openai' && !healthState.providers?.openai) status('OpenAI API key is not configured on beast-3.');
+    else if ($('provider').value === 'local' && !healthState.providers?.local) status('Local ASR is not loaded.');
+    else status(healthState.error || 'Model is loading. Refresh shortly.');
+    $('start').disabled = !providerAvailable();
+  } catch (error) { status(`Server unavailable: ${error.message}`); }
+}
+
+function render(data) {
+  sessionDuration = data.duration;
+  $('duration').textContent = time(sessionDuration);
+  $('endTick').textContent = time(sessionDuration);
+  const segments = data.segments || [];
+  const speakers = [...new Set(segments.map(s => s.speaker))].sort((a,b) => a-b);
+  $('lanes').replaceChildren();
+  for (const speaker of speakers) {
+    const row = document.createElement('div'); row.className = 'row';
+    const label = document.createElement('strong'); label.textContent = `Speaker ${speaker + 1}`;
+    const track = document.createElement('div'); track.className = 'track';
+    for (const segment of segments.filter(s => s.speaker === speaker)) {
+      const block = document.createElement('div'); block.className = 'segment';
+      block.style.background = colors[speaker];
+      block.style.left = `${100 * segment.start / sessionDuration}%`;
+      block.style.width = `${100 * (segment.end - segment.start) / sessionDuration}%`;
+      block.title = `${time(segment.start)}–${time(segment.end)}`;
+      track.append(block);
+    }
+    row.append(label, track); $('lanes').append(row);
+  }
+  if (!speakers.length) $('lanes').textContent = 'No speaker detected yet.';
+  const events = $('events'); events.replaceChildren();
+  for (const segment of [...segments].sort((a,b) => a.start-b.start)) {
+    const row = document.createElement('div'); row.className = 'event';
+    const pill = document.createElement('span'); pill.className = 'pill';
+    pill.style.background = colors[segment.speaker]; pill.textContent = `Speaker ${segment.speaker + 1}`;
+    const range = document.createElement('span'); range.textContent = `${time(segment.start)}–${time(segment.end)}`;
+    const note = document.createElement('span'); note.textContent = 'Speaking';
+    row.append(pill, range, note); events.append(row);
+  }
+  if (!segments.length) events.textContent = 'No speech detected yet.';
+  events.scrollTop = events.scrollHeight;
+}
+
+function renderCaptions(data) {
+  const grouped = [];
+  for (const item of data.items || []) {
+    if (!item.text.trim()) continue;
+    const previous = grouped[grouped.length - 1];
+    if (previous && previous.speaker === item.speaker) previous.text += item.text;
+    else grouped.push({speaker: item.speaker, text: item.text});
+  }
+  const container = $('captions'); container.replaceChildren();
+  for (const item of grouped) {
+    const line = document.createElement('div'); line.className = 'caption-line';
+    const pill = document.createElement('span'); pill.className = 'pill';
+    pill.textContent = item.speaker === null ? 'Unassigned' : `Speaker ${item.speaker + 1}`;
+    pill.style.background = item.speaker === null ? '#b7c9be' : colors[item.speaker];
+    const words = document.createElement('span'); words.textContent = item.text.trim();
+    line.append(pill, words); container.append(line);
+  }
+  if (!grouped.length) container.textContent = 'Waiting for speech.';
+  container.scrollTop = container.scrollHeight;
+}
+
+async function start() {
+  $('start').disabled = true;
+  status('Requesting microphone…');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}, video: false});
+    context = new AudioContext({sampleRate: 16000});
+    if (context.sampleRate !== 16000) throw new Error('Browser did not provide 16 kHz audio');
+    socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/stream?language=${encodeURIComponent($('language').value)}&provider=${encodeURIComponent($('provider').value)}`);
+    socket.binaryType = 'arraybuffer';
+    await new Promise((resolve, reject) => {
+      socket.onopen = resolve;
+      socket.onerror = () => reject(new Error('WebSocket connection failed'));
+    });
+    socket.onmessage = event => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'ready') status('Live · listening');
+      if (data.type === 'segments') render(data);
+      if (data.type === 'captions') renderCaptions(data);
+      if (data.type === 'error' || data.type === 'limit') { status(data.message); stop(); }
+    };
+    socket.onclose = () => { if (stream) stop(); };
+    const code = `class PCMProcessor extends AudioWorkletProcessor {
+      constructor() { super(); this.buffer = new Float32Array(4096); this.offset = 0; }
+      process(inputs) {
+        const input = inputs[0]; if (!input || !input.length) return true;
+        const channels = input.length, length = input[0].length;
+        for (let i = 0; i < length; i++) {
+          let sample = 0; for (let c = 0; c < channels; c++) sample += input[c][i] / channels;
+          this.buffer[this.offset++] = sample;
+          if (this.offset === this.buffer.length) {
+            this.port.postMessage(this.buffer, [this.buffer.buffer]);
+            this.buffer = new Float32Array(4096); this.offset = 0;
+          }
+        }
+        return true;
+      }
+    } registerProcessor('pcm-processor', PCMProcessor);`;
+    const url = URL.createObjectURL(new Blob([code], {type: 'text/javascript'}));
+    try { await context.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
+    source = context.createMediaStreamSource(stream);
+    worklet = new AudioWorkletNode(context, 'pcm-processor');
+    worklet.port.onmessage = event => {
+      const pcm = event.data;
+      let sum = 0; for (const sample of pcm) sum += sample * sample;
+      $('meter').firstElementChild.style.width = `${Math.min(100, Math.sqrt(sum / pcm.length) * 300)}%`;
+      if (socket?.readyState === WebSocket.OPEN) socket.send(pcm.buffer);
+    };
+    silentGain = context.createGain(); silentGain.gain.value = 0;
+    source.connect(worklet); worklet.connect(silentGain); silentGain.connect(context.destination);
+    $('stop').disabled = false;
+    $('language').disabled = true;
+    $('provider').disabled = true;
+  } catch (error) { status(error.message); stop(); }
+}
+
+function stop() {
+  $('stop').disabled = true;
+  if (worklet) { worklet.disconnect(); worklet.port.onmessage = null; worklet = null; }
+  if (silentGain) { silentGain.disconnect(); silentGain = null; }
+  if (source) { source.disconnect(); source = null; }
+  if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
+  if (context) { context.close(); context = null; }
+  if (socket) {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({type: 'stop'}));
+      const closingSocket = socket;
+      setTimeout(() => { if (closingSocket.readyState === WebSocket.OPEN) closingSocket.close(); }, 10000);
+    } else socket.close();
+    socket = null;
+  }
+  $('meter').firstElementChild.style.width = '0';
+  $('language').disabled = false;
+  $('provider').disabled = false;
+  $('start').disabled = !providerAvailable();
+  if ($('status').textContent.startsWith('Live')) status('Stopped');
+}
+
+$('start').addEventListener('click', start);
+$('stop').addEventListener('click', stop);
+$('provider').addEventListener('change', checkHealth);
+checkHealth();
+</script>
+</body>
+</html>

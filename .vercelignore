@@ -1,0 +1,10 @@
+.env*
+.dev.vars*
+worker/
+node_modules/
+__pycache__/
+*.py
+uv.lock
+.pytest_cache/
+design/
+tests/

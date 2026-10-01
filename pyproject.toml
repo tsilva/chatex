@@ -1,0 +1,22 @@
+[project]
+name = "nemotron-diarization-spike"
+version = "0.1.0"
+description = "Live multilingual captions with Nemotron speaker diarization"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "websockets>=15,<17",
+  "numpy>=2,<3",
+  "nemo-toolkit[asr]",
+]
+
+[tool.uv]
+exclude-newer = "7 days"
+constraint-dependencies = [
+  "mistralai!=2.4.6",
+  "guardrails-ai!=0.10.1",
+]
+
+[tool.uv.sources]
+nemo-toolkit = { git = "https://github.com/NVIDIA-NeMo/Speech.git", rev = "5dbdde68d3897c03faeda1b0d9655cd90b1c5e08" }
