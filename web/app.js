@@ -26,39 +26,51 @@ async function request(path, body) {
 }
 function codeInput(value) { return value.toUpperCase().replace(/[\s-]/g, ''); }
 async function joinScreen(code) {
-  state.code = code; notice('');
-  if (!/^[A-HJ-NP-Z2-9]{10}$/.test(code)) throw new Error('Verifica o código da sala.');
-  await request(`/rooms/${code}`);
-  $('#invited-room').textContent = `Sala ${code}`;
-  $('#invited-room').hidden = false;
-  $('#join-code').textContent = 'Entrar na sala';
-  show('home'); $('#name').focus();
+  state.code = code; notice(''); entryUI();
+  show('waiting');
+  if (!/^[A-HJ-NP-Z2-9]{10}$/.test(code)) throw new Error('Este convite não é válido.');
+  const room = await request(`/rooms/${code}`);
+  if (state.code !== code) return;
+  $('#waiting-count').textContent = `${room.count} / 6`;
+  busy(false); $('#name').focus();
+}
+function entryUI() {
+  const invited = Boolean(state.code);
+  const joining = invited && !state.membership;
+  $(joining ? '#waiting-entry' : '#home-entry').append($('#entry-form'));
+  $('#waiting-entry').hidden = !joining;
+  $('#waiting-content').hidden = joining;
+  $('#entry-title').hidden = !joining;
+  $('#entry-submit').textContent = invited ? 'Entrar na sala' : 'Criar sala';
 }
 function personName() { return $('#name').value.replace(/[\u0000-\u001f\u007f]/g, '').trim(); }
 function nameUI() {
   const disabled = state.busy || !personName();
-  $('#create').disabled = disabled;
-  $('#join-code').disabled = disabled;
+  $('#entry-submit').disabled = disabled;
 }
-function busy(value) { state.busy = value; nameUI(); }
+function busy(value) {
+  state.busy = value; nameUI();
+  $('#leave-waiting').disabled = value && !$('#waiting-entry').hidden;
+}
 let nameViewportHeight = 0;
 let nameViewportFrame = 0;
 function scheduleNameViewport() {
   cancelAnimationFrame(nameViewportFrame);
   nameViewportFrame = requestAnimationFrame(() => {
-    const home = $('#home');
+    const page = document.getElementById(state.page);
     const viewport = window.visualViewport;
     const keyboardOpen = viewport && viewport.height < nameViewportHeight - 100;
-    const editing = !home.hidden && window.matchMedia('(max-width: 649px)').matches &&
-      (document.activeElement === $('#name') || (home.classList.contains('name-editing') && keyboardOpen));
-    home.classList.toggle('name-editing', editing);
+    const editing = page.contains($('#name')) && window.matchMedia('(max-width: 649px)').matches &&
+      (document.activeElement === $('#name') || (page.classList.contains('name-editing') && keyboardOpen));
+    document.querySelectorAll('.page').forEach(el => { if (el !== page) el.classList.remove('name-editing'); });
+    page.classList.toggle('name-editing', editing);
     if (editing) {
       // Mobile keyboards can shrink and pan the visual viewport without changing 100dvh.
-      home.style.setProperty('--name-viewport-height', `${viewport?.height ?? window.innerHeight}px`);
-      home.style.setProperty('--name-viewport-top', `${viewport?.offsetTop ?? 0}px`);
+      page.style.setProperty('--name-viewport-height', `${viewport?.height ?? window.innerHeight}px`);
+      page.style.setProperty('--name-viewport-top', `${viewport?.offsetTop ?? 0}px`);
     } else {
-      home.style.removeProperty('--name-viewport-height');
-      home.style.removeProperty('--name-viewport-top');
+      page.style.removeProperty('--name-viewport-height');
+      page.style.removeProperty('--name-viewport-top');
     }
   });
 }
@@ -139,12 +151,12 @@ async function enableMic() {
   } catch { await disableMic(false); notice('Não foi possível usar o microfone. Permite o acesso no navegador ou escreve uma resposta.'); }
   finally { $('#mic').disabled = false; }
 }
-async function enter(event, options = {}) {
+async function enter(event) {
   event?.preventDefault(); if (state.busy) return;
   const name = personName();
   if (!name) { nameUI(); $('#name').focus(); return; }
   busy(true); notice('');
-  const code = options.code ?? state.code;
+  const code = state.code;
   state.desiredMic = true;
   let microphoneNotice = '';
   let joined = false;
@@ -162,7 +174,7 @@ async function enter(event, options = {}) {
   });
   try {
     const result = await request(code ? `/rooms/${code}/join` : '/rooms', { name });
-    state.membership = result; state.code = result.code;
+    state.membership = result; state.code = result.code; entryUI();
     joined = true;
     sessionStorage.setItem('chatex-membership', JSON.stringify(result));
     history.replaceState(null, '', `?room=${state.code}`);
@@ -244,7 +256,6 @@ function receive(event) {
     const wasLive = state.room?.status === 'live';
     state.room = event; renderRoster();
     $('#room-code').textContent = state.code;
-    $('#waiting-code').textContent = state.code;
     if (first) {
       qr('#waiting-qr');
       state.captions.clear(); $('#history').replaceChildren(); $('#live').replaceChildren();
@@ -267,7 +278,8 @@ function clearSession() {
   state.mic = false; state.desiredMic = false; releaseCapture(); micUI();
   state.captions.clear(); $('#history').replaceChildren(); $('#live').replaceChildren();
   state.room = null; state.membership = null; sessionStorage.removeItem('chatex-membership');
-  state.code = ''; $('#invited-room').hidden = true; $('#join-code').textContent = 'Entrar numa sala';
+  state.code = ''; entryUI();
+  $('#waiting-count').textContent = ''; busy(false);
   history.replaceState(null, '', '/'); closeDialogs(); notice('');
 }
 function ended() { clearSession(); show('ended'); }
@@ -281,24 +293,14 @@ function confirmExit() {
 $('#name').oninput = nameUI;
 $('#name').onchange = nameUI;
 $('#name').onfocus = () => {
-  if (!$('#home').classList.contains('name-editing')) nameViewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  if (!document.getElementById(state.page).classList.contains('name-editing')) nameViewportHeight = window.visualViewport?.height ?? window.innerHeight;
   scheduleNameViewport();
 };
 $('#name').onblur = event => {
   // Keep buttons in place through the click that dismisses the keyboard.
-  if (!event.relatedTarget?.closest('#home')) scheduleNameViewport();
+  if (!event.relatedTarget?.closest('#entry-form')) scheduleNameViewport();
 };
-$('#create').onclick = event => void enter(event, { code: '' });
-$('#join-code').onclick = event => {
-  if (!personName() || state.busy) return;
-  if (state.code) void enter(event);
-  else $('#code-dialog').showModal();
-};
-$('#code-form').onsubmit = event => {
-  event.preventDefault(); const code = codeInput($('#code-input').value);
-  if (!/^[A-HJ-NP-Z2-9]{10}$/.test(code)) { notice('Verifica o código da sala.'); return; }
-  closeDialogs(); void enter(event, { code });
-};
+$('#entry-form').onsubmit = event => void enter(event);
 document.querySelectorAll('.home-button').forEach(button => button.onclick = () => { clearSession(); show('home'); });
 document.querySelectorAll('[data-close]').forEach(button => button.onclick = closeDialogs);
 $('#start').onclick = () => send({ type: 'start' });
@@ -306,15 +308,19 @@ $('#mic').onclick = () => { notice(''); if (state.mic || state.desiredMic) void 
 $('#composer').onsubmit = event => { event.preventDefault(); const text = $('#reply').value.trim(); if (text && send({ type: 'text', text, id: crypto.randomUUID() })) $('#reply').value = ''; };
 $('#room-menu').onclick = () => $('#menu-dialog').showModal();
 $('#larger').onclick = () => { document.body.classList.toggle('larger'); closeDialogs(); };
-function openInvite() { closeDialogs(); qr('#invite-qr'); $('#invite-code').textContent = state.code; $('#invite-dialog').showModal(); }
+function openInvite() { closeDialogs(); qr('#invite-qr'); $('#invite-dialog').showModal(); }
 $('#invite').onclick = openInvite; $('#waiting-invite').onclick = openInvite;
 $('#share').onclick = async () => {
   try {
     if (navigator.share) await navigator.share({ title: 'chatex', url: invitation() });
     else { await navigator.clipboard.writeText(invitation()); closeDialogs(); notice('Convite copiado.'); }
-  } catch (error) { if (error.name !== 'AbortError') notice('Partilha o código da sala.'); }
+  } catch (error) { if (error.name !== 'AbortError') notice('Pede à outra pessoa para ler o QR code.'); }
 };
-$('#exit').onclick = confirmExit; $('#leave-waiting').onclick = confirmExit;
+$('#exit').onclick = confirmExit;
+$('#leave-waiting').onclick = () => {
+  if (state.membership) confirmExit();
+  else { clearSession(); show('home'); }
+};
 $('#confirm-exit').onclick = () => {
   if (!send({ type: state.membership.host ? 'end' : 'leave' })) { notice('Espera pela ligação para sair da sala.'); return; }
   if (!state.membership.host) { clearSession(); show('home'); }
@@ -325,13 +331,14 @@ setInterval(() => send({ type: 'ping' }), 25000);
 window.addEventListener('pagehide', () => { state.desiredMic = false; state.mic = false; releaseCapture(); state.socket?.close(); });
 window.addEventListener('pageshow', event => { if (event.persisted && state.membership) connect(); });
 async function init() {
-  nameUI();
+  busy(true);
   const code = codeInput(new URL(location.href).searchParams.get('room') || '');
   let saved; try { saved = JSON.parse(sessionStorage.getItem('chatex-membership')); } catch { sessionStorage.removeItem('chatex-membership'); }
   if (saved?.code && (!code || code === saved.code)) {
-    try { await request(`/rooms/${saved.code}`); state.membership = saved; state.code = saved.code; show('waiting'); connect(); return; }
+    try { await request(`/rooms/${saved.code}`); state.membership = saved; state.code = saved.code; entryUI(); busy(false); show('waiting'); connect(); return; }
     catch { sessionStorage.removeItem('chatex-membership'); }
   }
-  if (code) await joinScreen(code); else show('home');
+  if (code) await joinScreen(code);
+  else { entryUI(); busy(false); show('home'); }
 }
 void init().catch(error => notice(error.message));
