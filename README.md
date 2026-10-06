@@ -40,3 +40,5 @@ pnpm build        # build the frontend into dist/
 - Audio is streamed to the transcription provider and is not stored by the room app. The OpenAI API key stays on the server; participants need no provider credentials. Transcription incurs provider charges.
 - The frontend runs on Vercel, with Cloudflare Workers coordinating rooms and forwarding audio to OpenAI. `CHATEX_API_URL` selects the backend at build time; `ALLOWED_ORIGINS` must include the frontend’s exact origin. Defaults, limits, provider adapters, and deployment commands are in the [deployment guide](docs/room-deployment.md).
 - The Python/Nemotron GPU experiment is retired from the active setup. Its source is preserved in [the recovery archive](archive/diarization-spike/README.md); current development and deployments use the OpenAI-backed Worker.
+
+Production delivery runs on pushes to `main` and supports manual secret rotations. See [production delivery](docs/production-delivery.md) for destinations, access boundaries and failure behavior.
