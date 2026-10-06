@@ -26,7 +26,7 @@ A dedicated microphone array with beamforming and speech separation is an altern
 
 The 40-second ES2004a AMI excerpt was made from `Mix-Headset.wav`, a mixture of close headset recordings. Four model speaker lanes corresponded to the four annotated participants. This does not validate distant phone recording in bar noise. Only 3 of 9 finalized OpenAI caption turns were assigned a speaker by the current overlap heuristic. OpenAI live transcription supplies no word timestamps; a long turn may contain several speakers, so the current association can remain unassigned or be unreliable.
 
-Keep the spike as a comparison baseline and reuse its audio transport and transcription integration. The primary multi-phone architecture should not depend on the GPU diarizer or on aligning whole ASR turns to separate speaker intervals. Model count and benchmark diarization accuracy are not product acceptance criteria.
+The spike was retired on 2026-10-06; its archived source is only a historical comparison baseline. The primary multi-phone architecture should not depend on the GPU diarizer or on aligning whole ASR turns to separate speaker intervals. Model count and benchmark diarization accuracy are not product acceptance criteria.
 
 ## Next experiment and decision gate
 

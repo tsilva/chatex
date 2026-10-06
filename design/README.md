@@ -23,7 +23,7 @@ Confirmed constraints: 2–6 participants; foreground webpage; delete caption hi
 
 ## Prototype boundary
 
-The QR is illustrative and not scannable as a live invite. People, captions, room transitions and sharing are simulated. The prototype makes no API calls, creates no rooms, and captures no audio. It does not alter the running diarization spike.
+The QR is illustrative and not scannable as a live invite. People, captions, room transitions and sharing are simulated. The prototype makes no API calls, creates no rooms, and captures no audio. It does not start the caption service. The earlier diarization spike is retired.
 
 The shared API key must stay on the server; it is not part of the client design. Per-room and per-participant limits should bound shared usage. Browser screens should not expose credentials or model settings.
 

@@ -1,6 +1,6 @@
 # Architecture proposal: shared live captions
 
-Date: 2026-09-30. This is a proposed design, not an implementation or approved product specification. The original Python spike remains separate. The current implementation and deployment are described in [room-deployment.md](room-deployment.md).
+Date: 2026-09-30. This is a proposed design, not an implementation or approved product specification. The original Python/GPU spike was retired on 2026-10-06. GPU components described below are historical proposals, not active setup instructions. The current implementation and deployment are described in [room-deployment.md](room-deployment.md).
 
 Scope update (2026-09-30): the user deferred voice profiles until a later version. The current design has no enrollment, cached voice samples, or profile-based filtering; joiners enter a name and choose microphone participation. Each named phone supplies its own transcription stream. The voice-profile sections below are retained as a future proposal. Source-phone labels alone do not resolve cross-talk or establish crowded-bar accuracy.
 

@@ -1,6 +1,6 @@
 # Shared caption rooms
 
-Implemented 2026-09-30. The mobile room app is separate from the original Python/Nemotron spike. Voice profiles are deferred.
+Implemented 2026-09-30. The mobile room app uses the OpenAI-backed Cloudflare Worker. The original Python/Nemotron GPU experiment was retired on 2026-10-06 and preserved only in the recovery archive. Voice profiles are deferred.
 
 ## Deployed services
 
@@ -88,7 +88,7 @@ Open or reload the frontend URL from the first terminal. The static server reads
 
 ## Provider boundary
 
-`worker/src/transcription.ts` accepts PCM24 and emits `{item, text, final, time}`. OpenAI is implemented and verified separately from mock tests. `TRANSCRIPTION_PROVIDER=compatible` supports a configured server that implements the same session/update/append/commit and transcription-event protocol. Other providers require their own adapter; this does not claim arbitrary APIs are compatible. A model on beast-3 can expose that protocol behind an authenticated HTTPS endpoint, without changing frontend/room code.
+`worker/src/transcription.ts` accepts PCM24 and emits `{item, text, final, time}`. OpenAI is implemented and verified separately from mock tests. `TRANSCRIPTION_PROVIDER=compatible` supports a configured server that implements the same session/update/append/commit and transcription-event protocol. Other providers require their own adapter; this does not claim arbitrary APIs are compatible.
 
 ## Verification and remaining trial
 
