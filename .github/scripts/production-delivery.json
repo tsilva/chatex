@@ -3,8 +3,13 @@
   "githubRepositoryId": 1399606887,
   "identityId": "67e16b3c-3263-4b90-9544-723f5364328a",
   "infisicalProjectId": "b36d2fc6-cc3e-47f6-9264-857b204a97e9",
-  "secretName": "OPENAI_API_KEY",
+  "secretNames": [
+    "OPENAI_API_KEY"
+  ],
   "destination": "cloudflare-worker",
+  "vercelProjectId": "prj_j3Q68ewElEvfU0a1tKzagjryRwAe",
+  "vercelProjectName": "chatex",
+  "vercelTeamId": "team_eE2Iv7IMqPOx8ZVN2xNfR2f0",
   "cloudflareAccountId": "83e1ce4a70ea388693e8525a772ccefa",
   "workerName": "chatex-rooms",
   "healthUrl": "https://chatex-rooms.eng-tiago-silva.workers.dev/health"
