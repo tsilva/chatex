@@ -52,8 +52,7 @@
   "account_id": "83e1ce4a70ea388693e8525a772ccefa",
   "secrets": {
     "required": [
-      "OPENAI_API_KEY",
-      "TRANSCRIPTION_TOKEN"
+      "OPENAI_API_KEY"
     ]
   }
 }
