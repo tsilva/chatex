@@ -1,7 +1,7 @@
 {
   "repository": "tsilva/chatex",
   "githubRepositoryId": 1399606887,
-  "identityId": "67e16b3c-3263-4b90-9544-723f5364328a",
+  "identityId": "672c01c3-c025-40f9-b89b-5abcc03e8261",
   "infisicalProjectId": "b36d2fc6-cc3e-47f6-9264-857b204a97e9",
   "secretNames": [
     "OPENAI_API_KEY"
