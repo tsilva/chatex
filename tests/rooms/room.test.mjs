@@ -73,3 +73,71 @@ test('six-person room: identity, audio relay, reconnect, permissions, bounded ca
   await people[0].next(e => e.type === 'ended');
   assert.equal((await request(`/rooms/${members[0].code}`)).status, 410);
 });
+
+async function livePair(t) {
+  const created = await request('/rooms', { name: 'Ana' }); assert.equal(created.status, 201);
+  const host = created.body;
+  const joined = await request(`/rooms/${host.code}/join`, { name: 'João' }); assert.equal(joined.status, 201);
+  const guest = joined.body;
+  const people = [await connection(host), await connection(guest)];
+  t.after(async () => {
+    people[0].send({ type: 'end' });
+    await people[0].next(e => e.type === 'ended');
+    people.forEach(p => p.ws.terminate());
+  });
+  people[0].send({ type: 'start' });
+  await Promise.all(people.map(p => p.next(e => e.type === 'room' && e.status === 'live')));
+  return people;
+}
+const retryOptions = { skip: !api || !process.env.CHATEX_TEST_PROVIDER };
+test('a temporary provider disconnect at startup recovers without asking to turn the microphone on', retryOptions, async t => {
+  const people = await livePair(t);
+  await fetch(process.env.CHATEX_TEST_PROVIDER + '/fail-next', { method: 'POST' });
+  people[0].send({ type: 'mic', active: true });
+  const first = await people[0].next(e => e.type === 'mic' && e.active);
+  const recovered = await people[0].next(e => e.type === 'mic' && e.active || e.type === 'error');
+  assert.equal(recovered.type, 'mic', recovered.message);
+  assert.notEqual(recovered.epoch, first.epoch);
+  for (let seq = 0; seq < 5; seq++) people[0].ws.send(frame(seq, seq === 0));
+  const caption = await people[1].next(e => e.type === 'caption' && e.caption.final);
+  assert.equal(caption.caption.name, 'Ana');
+  assert.equal(caption.caption.text, 'Olá, estamos a conversar.');
+});
+
+test('muting during a pending provider retry cancels the restart', retryOptions, async t => {
+  const people = await livePair(t);
+  await fetch(process.env.CHATEX_TEST_PROVIDER + '/fail-next', { method: 'POST' });
+  people[0].send({ type: 'mic', active: true });
+  await people[0].next(e => e.type === 'mic' && !e.active);
+  await people[0].next(e => e.type === 'mic' && e.active);
+  await people[0].next(e => e.type === 'mic' && !e.active);
+  people[0].send({ type: 'mic', active: false });
+  await new Promise(resolve => setTimeout(resolve, 750));
+  people[0].send({ type: 'ping' });
+  const result = await people[0].next(e => e.type === 'pong' || e.type === 'mic' && e.active || e.type === 'error');
+  assert.equal(result.type, 'pong', 'A muted microphone must stay off after a scheduled retry');
+});
+
+test('a temporary session setup rejection retries before asking for manual activation', retryOptions, async t => {
+  const people = await livePair(t);
+  await fetch(process.env.CHATEX_TEST_PROVIDER + '/fail-next', { method: 'POST', body: JSON.stringify({ kind: 'setup' }) });
+  people[0].send({ type: 'mic', active: true });
+  const ready = await people[0].next(e => e.type === 'mic' && e.active || e.type === 'error');
+  assert.equal(ready.type, 'mic', ready.message);
+});
+
+test('a persistent provider outage stops after two retries and permits a manual restart', retryOptions, async t => {
+  const people = await livePair(t);
+  await fetch(process.env.CHATEX_TEST_PROVIDER + '/fail-next', { method: 'POST', body: JSON.stringify({ count: 3 }) });
+  people[0].send({ type: 'mic', active: true });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ready = await people[0].next(e => e.type === 'mic' && e.active || e.type === 'error');
+    assert.equal(ready.type, 'mic', 'Each retry should open one provider session');
+  }
+  const failed = await people[0].next(e => e.type === 'error' || e.type === 'mic' && e.active);
+  assert.equal(failed.type, 'error');
+  assert.match(failed.message, /A transcrição foi interrompida/);
+  people[0].send({ type: 'mic', active: true });
+  const restarted = await people[0].next(e => e.type === 'mic' && e.active || e.type === 'error');
+  assert.equal(restarted.type, 'mic');
+});

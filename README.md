@@ -1,64 +1,44 @@
-# Chatex
+<p align="center">
+  <img src="logo.png" alt="Chatex logo" width="220" />
+  <br />
+  <!-- repo-tagline:start -->
+  <strong>💬 Follow conversations with live captions 👥</strong>
+  <!-- repo-tagline:end -->
+</p>
 
-Live shared captions for conversations with friends. The mobile room app uses a Vercel frontend, Cloudflare room coordination, and a shared server-side OpenAI transcription account.
+Chatex is a mobile web app for deaf people and their friends to follow conversations through shared live captions. Open [the app](https://chatex.tsilva.eu) on each participant’s phone to read named captions and send typed replies. Transcription supports multiple languages, including Portuguese as spoken in Portugal.
 
-**Open the app:** https://chatex.tsilva.eu
+Enter your name, create a room, and share its QR code or invitation link. Once at least two people have joined, the host starts the conversation. Each speaking phone supplies its own microphone stream; participants can also read and type without microphone access.
 
-Enter your name, create a room, and share its QR code or invitation link. Friends join with their own phones. The host starts the conversation; everyone sees named captions and can type replies. Voice profiles are deferred. Rooms support 2–6 people, expire after an hour, and delete captions when ended. Keep the page open during use.
+## Install
 
-See [deployment and verification](docs/room-deployment.md) for configuration, limits, provider adapters, tests, and the remaining real microphone trial.
-
-## Original diarization spike
-
-The files `app.py`, `index.html`, `openai_live.py`, and the Python environment remain the earlier standalone spike. They are not deployed as part of the room app.
-
-# Live captions and speaker lanes
-
-A single-user microphone spike that combines [NVIDIA Nemotron 3 Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization) with a choice of [OpenAI GPT Live Transcribe](https://developers.openai.com/api/docs/guides/realtime-transcription) or local [Nemotron 3.5 ASR Streaming 0.6B](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b). It shows live captions grouped by anonymous speaker alongside speaker activity lanes. European Portuguese (`pt-PT`) is the default; the menu also offers automatic language detection and other languages.
-
-The browser sends 16 kHz mono PCM to beast-3 over a WebSocket. OpenAI mode resamples that audio to 24 kHz and sends it to the OpenAI API for live transcription; local mode runs Nemotron ASR on the GPU. Both modes run Nemotron diarization on beast-3 about every two seconds. OpenAI returns text without word timestamps or speaker labels, so its captions are matched approximately to speakers by phrase timing. Local ASR provides word timestamps. Speaker labels and recent text can change as more audio arrives. Diarization reprocesses the growing session, so its compute cost increases with session length. Sessions stop after 60 seconds. This is a research demo, not yet a reliable accessibility tool.
-
-## Run on beast-3
-
-Requirements: Linux, Python 3.12 or 3.13, an NVIDIA GPU with CUDA, `uv`, `ffmpeg`, and `libsndfile1`. The local models download on first start. Run from this directory:
+For local development, use Node.js 22 or newer and pnpm 10.33.0. Clone the repository and preview the frontend:
 
 ```bash
-ssh tsilva@beast-3.local 'mkdir -p ~/nemotron-diarization-spike'
-rsync -av app.py asr_stream.py openai_live.py index.html pyproject.toml uv.lock README.md tsilva@beast-3.local:~/nemotron-diarization-spike/
-ssh tsilva@beast-3.local
-cd ~/nemotron-diarization-spike
+git clone https://github.com/tsilva/chatex.git
+cd chatex
+pnpm install --frozen-lockfile
+pnpm build
+node scripts/serve.mjs --port auto
 ```
 
-To use OpenAI transcription, store an OpenAI API key outside the project on beast-3. The server also accepts `OPENAI_API_KEY` from its process environment. A local `.env` file is not loaded by the server. The key file is checked when a session starts, so adding it does not require a server restart; refresh the browser page after adding it. The file must be owned by the server user and inaccessible to group and other users. On beast-3:
+Open the URL printed by the server. To enable local rooms and transcription, follow the [local backend setup](docs/room-deployment.md#local-development); it connects the frontend to a local Worker with an OpenAI API key and the correct allowed origin.
+
+## Commands
 
 ```bash
-install -d -m 700 ~/.config/nemotron-diarization-spike
-umask 077
-read -rs -p 'OpenAI API key: ' key; echo
-printf '%s' "$key" > ~/.config/nemotron-diarization-spike/openai-api-key
-unset key
+pnpm typecheck    # check the Worker’s TypeScript
+pnpm test:rooms   # test rooms and audio with an isolated mock provider
+pnpm build        # build the frontend into dist/
 ```
 
-Then install and start the server on beast-3:
+## Notes
 
-```bash
-sudo apt-get update && sudo apt-get install -y build-essential ffmpeg libsndfile1
-uv sync --frozen --python 3.12
-.venv/bin/uvicorn app:app --host 127.0.0.1 --port 7860
-```
+- Rooms support 2–6 participants, expire after one hour, and delete captions when ended or expired. The current deployment allows ten new rooms per UTC day.
+- Keep the page open and visible. Microphone capture requires HTTPS or localhost and browser permission; a page reload requires activating the microphone again.
+- Names identify source phones. Nearby voices, music, and overlapping speech can cause incorrect captions or attribution. Voice profiles and single-phone diarization are deferred; a real multi-phone conversation trial remains necessary.
+- Audio is streamed to the transcription provider and is not stored by the room app. The OpenAI API key stays on the server; participants need no provider credentials. Transcription incurs provider charges.
+- The frontend runs on Vercel, with Cloudflare Workers coordinating rooms and forwarding audio to OpenAI. `CHATEX_API_URL` selects the backend at build time; `ALLOWED_ORIGINS` must include the frontend’s exact origin. Defaults, limits, provider adapters, and deployment commands are in the [deployment guide](docs/room-deployment.md).
+- The Python/Nemotron GPU experiment is retired from the active setup. Its source is preserved in [the recovery archive](archive/diarization-spike/README.md); current development and deployments use the OpenAI-backed Worker.
 
-On the local machine, create a tunnel:
-
-```bash
-ssh -N -L 7860:127.0.0.1:7860 tsilva@beast-3.local
-```
-
-Open <http://localhost:7860>. The localhost origin permits browser microphone access. Check <http://localhost:7860/health> first; `ready` is `true` when diarization and at least one transcription provider are available. Select a provider and language, click **Start microphone**, and speak. OpenAI mode sends microphone audio to OpenAI and incurs API charges. If two people take turns, separate speaker lanes should appear, and caption lines will receive approximate speaker labels after diarization catches up. If the OpenAI key is present at startup, local ASR is skipped to save GPU memory; set `LOAD_LOCAL_ASR=1` to load it too.
-
-The lockfile pins NeMo Speech to NVIDIA's reference revision `5dbdde68d3897c03faeda1b0d9655cd90b1c5e08`; the user approved this Git dependency because the PyPI release predates the diarization model's high-resolution output support. Other direct dependencies resolve through PyPI. `--frozen` installs the recorded versions without refreshing the rolling seven-day package cutoff.
-
-The GPU is shared with other services on beast-3. A Qwen image-generation service previously contributed to a local ASR out-of-memory failure. The local ASR wrapper explicitly collects timestamp hypotheses after each update; without that, GPU memory grew by roughly 200 MiB per update. OpenAI mode keeps ASR off the GPU when the key is present at startup.
-
-## Scope and verification
-
-The local dual-model WebSocket path has been tested on beast-3 with an RTX 4090 using synthesized European Portuguese and two different English voices. Those checks exercised local ASR, word timestamps, speaker turns, caption-to-speaker matching, and memory use across repeated and 55-second sessions. The OpenAI relay has mock WebSocket tests and was also tested against the live OpenAI API using synthesized European Portuguese followed by English from a second voice. The final captions matched both utterances, and Nemotron assigned them to separate speaker lanes; the first partial captions appeared about 2.6–2.8 seconds after audio started in these short tests. These checks do not establish real conversation accuracy or typical latency. The earlier diarization-only UI was checked with a live human microphone, but the combined OpenAI path still needs a human microphone trial. Recognition can be wrong or revise recent words, especially with overlapping speakers or unclear speech. The UI has no explicit language identification display in automatic mode.
+Production delivery runs on pushes to `main` and supports manual secret rotations. See [production delivery](docs/production-delivery.md) for destinations, access boundaries and failure behavior.

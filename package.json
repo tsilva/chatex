@@ -7,7 +7,10 @@
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test:rooms": "node scripts/test-rooms.mjs",
-    "deploy:backend": "wrangler deploy --config worker/wrangler.jsonc"
+    "deploy:backend": "wrangler deploy --config worker/wrangler.jsonc",
+    "dev": "python3 scripts/infisical/run.py",
+    "secrets:sync:production": "python3 scripts/infisical/sync_production.py",
+    "test:secrets": "python3 -m unittest discover -s scripts/infisical -p test_secrets.py"
   },
   "dependencies": {
     "qrcode-generator": "2.0.4"
@@ -16,5 +19,11 @@
     "typescript": "7.0.2",
     "wrangler": "4.137.0",
     "ws": "8.21.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "undici@>=7 <7.29.1": "7.29.1",
+      "sharp": "0.35.5"
+    }
   }
 }

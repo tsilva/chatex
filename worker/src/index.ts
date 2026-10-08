@@ -3,6 +3,7 @@ import { cleanName, CODE_PATTERN, hashToken, MAX_PARTICIPANTS, newCode, readJson
 import { Transcription } from './transcription';
 
 type Attachment = { participantId: string; mic: boolean; seq: number; bytes: number; window: number; messages: number };
+type TranscriptionSession = { adapter: Transcription; epoch: string; ready: boolean; seq: number; audio: number; retries: number; recovering: boolean };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 const problem = (message: string, status = 400) => json({ error: message }, status);
 
@@ -20,7 +21,7 @@ export class Usage extends DurableObject<Env> {
 
 export class Room extends DurableObject<Env> {
   data: RoomData | null = null;
-  sessions = new Map<WebSocket, { adapter: Transcription; epoch: string; ready: boolean; seq: number; audio: number }>();
+  sessions = new Map<WebSocket, TranscriptionSession>();
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS room_state (id INTEGER PRIMARY KEY, payload TEXT NOT NULL)');
@@ -115,6 +116,8 @@ export class Room extends DurableObject<Env> {
         if (seq !== session.seq) throw new Error('Ligação de áudio interrompida. Liga o microfone novamente.');
         session.seq++;
         session.audio += message.byteLength - 4;
+        // A sustained healthy stream gets a fresh retry budget for later outages.
+        if (session.audio >= 48000 * 10) session.retries = 0;
         if (session.audio > 48000 * 60 * 120) throw new Error('Limite de áudio atingido.');
         session.adapter.append(message.slice(4));
         return;
@@ -165,7 +168,7 @@ export class Room extends DurableObject<Env> {
     if (caption.final) this.save(next); else this.data = next;
     this.broadcast({ type: 'caption', caption });
   }
-  private async start(ws: WebSocket, member: Participant) {
+  private async start(ws: WebSocket, member: Participant, retries = 0) {
     if (this.data?.status !== 'live') throw new Error('A conversa ainda não começou.');
     this.stop(ws);
     const epoch = crypto.randomUUID();
@@ -176,22 +179,40 @@ export class Room extends DurableObject<Env> {
         this.caption({ id: `${member.id}:${epoch}:${update.item}`, participantId: member.id, name: member.name,
           text: update.text, final: update.final, typed: false, time: update.time });
       }, () => {
-        if (this.sessions.get(ws)?.epoch !== epoch) return;
-        this.stop(ws); this.send(ws, { type: 'error', message: 'A transcrição foi interrompida. Liga o microfone para tentar novamente.' }); this.roster();
+        this.recover(ws, member, session, 'A transcrição foi interrompida. Liga o microfone para tentar novamente.');
       });
-    const session = { adapter, epoch, ready: false, seq: 0, audio: 0 };
+    const session = { adapter, epoch, ready: false, seq: 0, audio: 0, retries, recovering: false };
     this.sessions.set(ws, session);
     try {
       await adapter.open();
-      if (this.sessions.get(ws) !== session || !this.valid()) { adapter.close(); return; }
+      if (this.sessions.get(ws) !== session || session.recovering || !this.valid()) { adapter.close(); return; }
       session.ready = true;
       const attachment = this.attachment(ws);
       if (attachment) { attachment.mic = true; ws.serializeAttachment(attachment); }
       this.send(ws, { type: 'mic', active: true, epoch }); this.roster();
     } catch {
-      if (this.sessions.get(ws) !== session) return;
-      this.stop(ws); this.send(ws, { type: 'error', message: 'Não foi possível ligar a transcrição. Tenta novamente.' }); this.roster();
+      this.recover(ws, member, session, 'Não foi possível ligar a transcrição. Tenta novamente.');
     }
+  }
+  private recover(ws: WebSocket, member: Participant, session: TranscriptionSession, message: string) {
+    if (this.sessions.get(ws) !== session || session.recovering) return;
+    session.recovering = true;
+    session.ready = false;
+    session.adapter.close();
+    if (session.retries >= 2) {
+      this.stop(ws); this.send(ws, { type: 'error', message }); this.roster();
+      return;
+    }
+    const attachment = this.attachment(ws);
+    if (attachment) { attachment.mic = false; ws.serializeAttachment(attachment); }
+    this.send(ws, { type: 'mic', active: false }); this.roster();
+    // Keep capture available during a brief outage. Muting, leaving or a newer
+    // session removes this identity and cancels the delayed restart.
+    this.ctx.waitUntil((async () => {
+      await new Promise(resolve => setTimeout(resolve, 500 * 2 ** session.retries));
+      if (this.sessions.get(ws) !== session || !this.valid()) return;
+      await this.start(ws, member, session.retries + 1);
+    })());
   }
   private stop(ws: WebSocket, flush = false) {
     const session = this.sessions.get(ws);

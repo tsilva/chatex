@@ -43,10 +43,16 @@
     "TRANSCRIPTION_PROVIDER": "openai",
     "OPENAI_MODEL": "gpt-live-transcribe",
     "ROOM_MAX_MINUTES": "60",
-    "MAX_ROOMS_PER_DAY": "10"
+    "MAX_ROOMS_PER_DAY": "10",
+    "TRANSCRIPTION_URL": ""
   },
   "observability": {
     "enabled": false
   },
-  "account_id": "83e1ce4a70ea388693e8525a772ccefa"
+  "account_id": "83e1ce4a70ea388693e8525a772ccefa",
+  "secrets": {
+    "required": [
+      "OPENAI_API_KEY"
+    ]
+  }
 }
