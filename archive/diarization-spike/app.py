@@ -1,5 +1,11 @@
 """Single-user, live microphone diarization spike."""
 
+raise RuntimeError(
+    "The Chatex Python/Nemotron experiment is retired and cannot be launched. "
+    "Its historical Lightning stack is vulnerable; restore only after a fresh "
+    "dependency and credential review. Use the maintained shared-room app instead."
+)
+
 import asyncio
 import json
 import logging
