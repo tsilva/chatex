@@ -56,9 +56,9 @@ class SecretTests(unittest.TestCase):
     def test_worker_binding_allowlist(self):
         c = worker_configuration()
         self.assertEqual(
-            c["secrets"]["required"], ["OPENAI_API_KEY", "TRANSCRIPTION_TOKEN"]
+            c["secrets"]["required"], ["OPENAI_API_KEY"]
         )
-        self.assertIn("TRANSCRIPTION_URL", c["vars"])
+        self.assertEqual(c["vars"]["TRANSCRIPTION_URL"], "")
         self.assertFalse(c["observability"]["enabled"])
 
     def test_reader_rejects_foreign_workspace(self):
