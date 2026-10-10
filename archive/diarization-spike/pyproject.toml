@@ -1,21 +1,11 @@
 [project]
-name = "nemotron-diarization-spike"
+name = "chatex-retired-diarization-reference"
 version = "0.1.0"
-description = "Live multilingual captions with Nemotron speaker diarization"
+description = "Historical source only; the retired server refuses to launch"
 requires-python = ">=3.12,<3.14"
-dependencies = [
-  "fastapi>=0.115,<1",
-  "uvicorn>=0.34,<1",
-  "websockets>=15,<17",
-  "numpy>=2,<3",
-  "nemo-toolkit[asr]",
-]
+dependencies = []
 
 [tool.uv]
+package = false
 exclude-newer = "7 days"
-# Retain the retired NeMo snapshot; validate compatible security patch overrides.
-override-dependencies = ["hydra-core==1.3.7", "fsspec==2026.6.0"]
 constraint-dependencies = ["mistralai!=2.4.6", "guardrails-ai!=0.10.1", "multidict>=6.9.1", "werkzeug>=3.1.9"]
-
-[tool.uv.sources]
-nemo-toolkit = { git = "https://github.com/NVIDIA-NeMo/Speech.git", rev = "5dbdde68d3897c03faeda1b0d9655cd90b1c5e08" }
