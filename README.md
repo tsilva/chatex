@@ -42,5 +42,3 @@ pnpm build        # build the frontend into dist/
 - The Python/Nemotron GPU experiment is retired from the active setup. Its server entry point blocks launches before loading dependencies, models or credentials; the source remains in [the recovery archive](archive/diarization-spike/README.md), whose dependency-free manifest replaces the retired environment. The original dependency snapshot remains recoverable from Git history. Current development and deployments use the OpenAI-backed Worker.
 
 Production delivery runs on pushes to `main` and supports manual secret rotations. See [production delivery](docs/production-delivery.md) for destinations, access boundaries and failure behavior.
-
-A temporary manual Cloudflare token identity check is described in the same guide; it verifies deployment credentials without deploying the app.
