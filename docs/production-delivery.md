@@ -9,3 +9,5 @@ The workflow does not run on pull requests or forks, export `.env` files, upload
 After changing a production secret, use **Actions → Production delivery → Run workflow → main** to sync and deploy. A secret change alone does not trigger delivery. There is no schedule or automatic retry; rerun a failed workflow manually after fixing the cause. For an old failed commit superseded by a newer main commit, run a fresh workflow on main. Deployment tokens expire after one year and need rotation before expiry.
 
 Native Infisical syncs are disabled after this workflow has successfully replaced them. Updating a deployment credential in GitHub does not replace application keys in Infisical.
+
+Temporary credential audit: manually dispatch `Temporary Cloudflare token identity` on `main` to verify the existing `Production` Cloudflare secret. It only calls Cloudflare's token verification GET endpoint and prints the active token's non-secret ID. It does not sync secrets or deploy. Remove this temporary workflow and paragraph after recording the result; use `[skip ci]` on its addition/removal commits to avoid triggering production delivery.
