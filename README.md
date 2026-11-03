@@ -34,6 +34,8 @@ pnpm build        # build the frontend into dist/
 
 ## Notes
 
+The public homepage at [https://chatex.tsilva.eu/](https://chatex.tsilva.eu/) is the canonical URL listed in `/sitemap.xml`.
+
 - Rooms support 2–6 participants, expire after one hour, and delete captions when ended or expired. The current deployment allows ten new rooms per UTC day.
 - Keep the page open and visible. Microphone capture requires HTTPS or localhost and browser permission; a page reload requires activating the microphone again.
 - Names identify source phones. Nearby voices, music, and overlapping speech can cause incorrect captions or attribution. Voice profiles and single-phone diarization are deferred; a real multi-phone conversation trial remains necessary.
