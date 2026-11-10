@@ -3,8 +3,6 @@ name: Production delivery
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - .github/workflows/production-delivery.yml
   workflow_dispatch:
     inputs:
       stage_prebuilt:
@@ -77,19 +75,25 @@ jobs:
       contents: read
       actions: read
       id-token: write
-    uses: tsilva/.github/.github/workflows/production-delivery.yml@e0c6d64d4fc917ea0e108d27ce8d1a5304aeb3c6
+    uses: tsilva/.github/.github/workflows/production-delivery.yml@48a4449de4ac5f4d5e14343f70fe5fc57bc2cd74
+    with:
+      sync_only: true
     secrets:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
 
-  stage_prebuilt:
-    needs: worker-code
-    if: github.ref == 'refs/heads/main' && inputs.stage_prebuilt
+  publish:
+    needs: [worker-code, deliver]
+    if: >-
+      always() && github.ref == 'refs/heads/main' && needs.worker-code.result == 'success' &&
+      ((inputs.stage_prebuilt && needs.deliver.result == 'skipped') ||
+       (!inputs.stage_prebuilt && needs.deliver.result == 'success'))
     uses: tsilva/.github/.github/workflows/vercel-prebuilt.yml@22bb600ee7e3b22d238b284c132a3ad64a968719
     with:
       project_id: prj_j3Q68ewElEvfU0a1tKzagjryRwAe
       project_name: chatex
       production_domains: '["chatex.tsilva.eu","chatex-phi.vercel.app"]'
+      promote: ${{ !inputs.stage_prebuilt }}
     secrets:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
