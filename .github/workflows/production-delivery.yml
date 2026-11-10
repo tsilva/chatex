@@ -3,7 +3,14 @@ name: Production delivery
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - .github/workflows/production-delivery.yml
   workflow_dispatch:
+    inputs:
+      stage_prebuilt:
+        description: Stage and verify the frontend without changing either production target
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,30 +43,36 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: "!inputs.stage_prebuilt"
         with:
           run_install: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: "!inputs.stage_prebuilt"
         with:
           node-version: '22'
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - if: "!inputs.stage_prebuilt"
+        run: pnpm install --frozen-lockfile
       - name: Recheck the commit before Worker code publication
+        if: "!inputs.stage_prebuilt"
         run: python3 .github/scripts/worker_delivery.py check
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Deploy Worker code with existing secret bindings retained
+        if: "!inputs.stage_prebuilt"
         run: pnpm exec wrangler deploy --config worker/wrangler.jsonc --keep-vars
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           WRANGLER_SEND_METRICS: 'false'
       - name: Verify Worker health without a paid provider call
+        if: "!inputs.stage_prebuilt"
         run: python3 .github/scripts/worker_delivery.py worker-health
         env:
           GH_TOKEN: ${{ github.token }}
 
   deliver:
     needs: worker-code
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && !inputs.stage_prebuilt
     permissions:
       contents: read
       actions: read
@@ -68,3 +81,15 @@ jobs:
     secrets:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+
+  stage_prebuilt:
+    needs: worker-code
+    if: github.ref == 'refs/heads/main' && inputs.stage_prebuilt
+    uses: tsilva/.github/.github/workflows/vercel-prebuilt.yml@22bb600ee7e3b22d238b284c132a3ad64a968719
+    with:
+      project_id: prj_j3Q68ewElEvfU0a1tKzagjryRwAe
+      project_name: chatex
+      production_domains: '["chatex.tsilva.eu","chatex-phi.vercel.app"]'
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
