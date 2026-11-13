@@ -11,3 +11,4 @@ worker/.dev.vars*
 .vercel
 .env*
 !worker/.dev.vars.example
+/.internal/

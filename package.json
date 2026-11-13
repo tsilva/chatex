@@ -8,9 +8,9 @@
     "typecheck": "tsc --noEmit",
     "test:rooms": "node scripts/test-rooms.mjs",
     "deploy:backend": "wrangler deploy --config worker/wrangler.jsonc",
-    "dev": "python3 scripts/infisical/run.py",
+    "dev": "CLOUDFLARE_INCLUDE_PROCESS_ENV=true CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=true wrangler dev --config worker/wrangler.jsonc --env-file /dev/null --port 0 --ip 127.0.0.1 --local",
     "secrets:sync:production": "python3 scripts/infisical/sync_production.py",
-    "test:secrets": "python3 -m unittest discover -s scripts/infisical -p test_secrets.py"
+    "test:production-sync": "python3 -B -m unittest discover -s scripts/infisical -p test_production_sync.py"
   },
   "dependencies": {
     "qrcode-generator": "2.0.4"

@@ -10,4 +10,10 @@ At the start of substantive repository work, use `$specs-author` to read the ent
 
 ## Secrets
 
-Local Worker development fetches only the fixed Infisical development bindings. Default `.env` and `.dev.vars` are bypassed; required-secret configuration keeps manager credentials outside Worker bindings. Production OpenAI credentials live in `chatex-production`, Production `/`. `pnpm secrets:sync:production` updates only the existing OpenAI secret in the pinned Cloudflare account/Worker through private stdin, and verifies metadata. Keep keys outside the Vercel static frontend. Retain original local sources until verification. Use mocked room tests; do not start paid microphone/transcription sessions for migration checks. Preserve existing uv.lock, CI and license work.
+Local Worker development uses explicitly configured server environment values. Keep provider credentials out of the static
+frontend. Production synchronization remains a separately authorized trusted
+operation against its pinned existing Worker and Production source. Test it with
+`pnpm test:production-sync`; never run the real synchronization for local checks.
+Use `pnpm test:rooms` with its mock provider; do not start paid microphone or
+transcription sessions for migration verification. Preserve existing dependency,
+CI and license work.

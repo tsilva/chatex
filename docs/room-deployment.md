@@ -47,19 +47,16 @@ pnpm deploy:backend
 vercel deploy --prod --yes --scope tsilvas-projects
 ```
 
-`CHATEX_API_URL` is set in the Vercel project's production environment. `pnpm secrets:sync:production` copies only `OPENAI_API_KEY` from Infisical `chatex-production`, Production `/`, to the pinned existing Worker through private stdin. It verifies secret metadata; Cloudflare cannot reveal the value for exact readback. `scripts/set-openai-secret.py` delegates to this managed command. Secret values are never copied into the static build or Wrangler config.
+`CHATEX_API_URL` is set in the Vercel project's production environment. `pnpm secrets:sync:production` copies only `OPENAI_API_KEY` from Infisical `chatex-production`, Production `/`, to the pinned existing Worker through private stdin. It verifies secret metadata; Cloudflare cannot reveal the value for exact readback. Secret values are never copied into the static build or Wrangler config.
 
-For local work, follow [Local development](#local-development). Optional `TRANSCRIPTION_URL` and `TRANSCRIPTION_TOKEN` in Infisical Development configure a compatible service. The default launcher bypasses legacy `worker/.dev.vars`.
+For local work, follow [Local development](#local-development). Configure optional compatible-provider values explicitly in the local Worker environment. The development command bypasses automatic dotenv and `.dev.vars` loading.
 
 ## Local development
 
 Run these commands from the repository root after `pnpm install --frozen-lockfile`. Use Node.js 22 or newer and pnpm 10.33.0. Wrangler uses numeric `--port 0` to choose a free port; the frontend server also chooses its port automatically. Keep existing servers running and reuse their printed URLs.
 
-For connected local development, run `infisical login --domain https://app.infisical.com` and store `OPENAI_API_KEY` in Infisical `chatex`, Development `/`. Root `.infisical.json` pins the project; default dotenv files are bypassed. A real transcription session incurs OpenAI charges; `pnpm test:rooms` uses a mock provider and needs no real key.
-
-```sh
-infisical login --domain https://app.infisical.com
-```
+Configure the intended server-only provider environment when connecting to a real service. `pnpm test:rooms`
+uses a mock provider and no real key; do not use paid transcription as a startup test.
 
 In the first terminal, build and serve the frontend:
 
@@ -68,12 +65,12 @@ pnpm build
 node scripts/serve.mjs --port auto
 ```
 
-In a second terminal, paste the exact frontend URL when prompted, then start the local backend. The origin override applies only to this local process:
+In a second terminal, paste the exact frontend URL when prompted, then start the local backend. The origin override applies only to this local process; the command selects an automatic numeric port with Wrangler's `--port 0`:
 
 ```sh
 printf 'Frontend URL printed by the server: '
 read -r chatex_frontend_url
-pnpm dev --port auto --origin "$chatex_frontend_url"
+pnpm dev --var "ALLOWED_ORIGINS:$chatex_frontend_url"
 ```
 
 In a third terminal, rebuild using the backend URL printed by Wrangler:

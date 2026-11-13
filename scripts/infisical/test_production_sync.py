@@ -1,4 +1,4 @@
-"""Check local binding isolation, fixed destinations and private sync streams."""
+"""Verify pinned trusted Production synchronization with fake values only."""
 
 import contextlib
 import io
@@ -6,52 +6,21 @@ import json
 import os
 import unittest
 from unittest.mock import patch
-from common import Infisical, SecretError
-from run import command, worker_environment
-from sync_production import sync, PROJECT, worker_configuration
+from common import SecretError, cli_environment
+from sync_production import Production, sync, PROJECT, worker_configuration
 
 
 class SecretTests(unittest.TestCase):
     def test_fixed_project(self):
-        self.assertEqual(Infisical().project, "ed3a9be4-94eb-4f23-b38b-dcaa972208e0")
-        self.assertEqual(PROJECT, "b36d2fc6-cc3e-47f6-9264-857b204a97e9")
+        self.assertEqual(Production().project, 'b36d2fc6-cc3e-47f6-9264-857b204a97e9')
+        self.assertEqual(Production().domain, "https://app.infisical.com")
 
-    def test_missing_key_does_not_use_legacy_process_value(self):
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "stale"}):
-            with self.assertRaises(SecretError):
-                worker_environment({})
+    def test_trusted_cli_does_not_inherit_provider_or_manager_credentials(self):
+        with patch.dict(os.environ, {"INFISICAL_TOKEN": "fake-manager", "BWS_ACCESS_TOKEN": "fake-manager", "OPENAI_API_KEY": "fake-provider"}):
+            environment = cli_environment()
+        for name in ("INFISICAL_TOKEN", "BWS_ACCESS_TOKEN", "OPENAI_API_KEY"):
+            self.assertNotIn(name, environment)
 
-    def test_manager_credentials_removed_and_provider_allowlist(self):
-        with patch.dict(
-            os.environ, {"INFISICAL_TOKEN": "manager", "BWS_ACCESS_TOKEN": "manager"}
-        ):
-            e = worker_environment(
-                {
-                    "OPENAI_API_KEY": "dummy",
-                    "INFISICAL_TOKEN": "malicious",
-                    "PATH": "malicious",
-                }
-            )
-        self.assertEqual(e["OPENAI_API_KEY"], "dummy")
-        self.assertEqual(e["TRANSCRIPTION_TOKEN"], "")
-        self.assertNotIn("INFISICAL_TOKEN", e)
-        self.assertNotIn("BWS_ACCESS_TOKEN", e)
-        self.assertNotEqual(e["PATH"], "malicious")
-
-    def test_explicit_env_file_skips_default_dev_vars(self):
-        args = command(["--port", "auto", "--origin", "http://127.0.0.1:51515"])
-        self.assertIn("/dev/null", args)
-        self.assertIn("ALLOWED_ORIGINS:http://127.0.0.1:51515", args)
-
-    def test_destination_and_remote_overrides_rejected(self):
-        for args in [
-            ["--remote"],
-            ["--origin", "https://external.invalid"],
-            ["--origin", "http://localhost:1234/path"],
-            ["--env", "prod"],
-        ]:
-            with self.assertRaises(SecretError):
-                command(args)
 
     def test_worker_binding_allowlist(self):
         c = worker_configuration()
@@ -62,11 +31,11 @@ class SecretTests(unittest.TestCase):
         self.assertFalse(c["observability"]["enabled"])
 
     def test_reader_rejects_foreign_workspace(self):
-        c = Infisical()
+        c = Production()
         row = {
             "key": "OPENAI_API_KEY",
             "value": "dummy",
-            "workspace": PROJECT,
+            "workspace": "ed3a9be4-94eb-4f23-b38b-dcaa972208e0",
             "secretPath": "/",
             "type": "shared",
         }
@@ -75,7 +44,7 @@ class SecretTests(unittest.TestCase):
                 c.read()
 
     def test_reader_rejects_duplicate(self):
-        c = Infisical()
+        c = Production()
         row = {
             "key": "OPENAI_API_KEY",
             "value": "dummy",
