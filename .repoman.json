@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "exceptions": {
+    "dependencies.sources": {
+      "pyproject.toml": "Preserve the existing user-approved nemo-toolkit Git source at https://github.com/NVIDIA-NeMo/Speech.git, pinned to full revision 5dbdde68d3897c03faeda1b0d9655cd90b1c5e08. As recorded in docs/original-diarization-spike.md, the Python/GPU spike needs high-resolution diarization output support absent from the PyPI release. This reason covers only that exact source and revision; new sources, indexes, or age-policy exceptions require user approval."
+    }
+  },
+  "websites": {
+    "chatex.tsilva.eu": {
+      "url": "https://chatex.tsilva.eu/",
+      "availability": "reachable",
+      "ga4": "unverified",
+      "sentry": "unverified",
+      "checked-on": "2026-11-03",
+      "ga4-expectation": "required",
+      "ga4-verification-path": "/",
+      "sentry-expectation": "required",
+      "sentry-verification-path": "/"
+    }
+  }
+}
